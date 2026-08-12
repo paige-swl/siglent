@@ -40,7 +40,7 @@ class ChannelUnit(StrEnum):
     AMPS = "A"
     VOLTS = "V"
 
-class MeasurementMode(StrEnum):
+class SDSMeasurementMode(StrEnum):
     SIMPLE = "SIMP"
     ADVANCED = "ADV"
 
@@ -204,12 +204,12 @@ class SDS2000X(MessageResource):
         self._resource.write(f":MEAS {"ON" if enabled else "OFF"}")
 
     @property
-    def measure_mode(self) -> MeasurementMode:
+    def measure_mode(self) -> SDSMeasurementMode:
         """Get the measurement mode of the scope (simple or advanced)"""
-        return MeasurementMode(self._resource.query(":MEAS:MODE?").strip())
+        return SDSMeasurementMode(self._resource.query(":MEAS:MODE?").strip())
 
     @measure_mode.setter
-    def measure_mode(self, mode: MeasurementMode):
+    def measure_mode(self, mode: SDSMeasurementMode):
         """Set the measurement mode of the scope (simple or advanced)"""
         self._resource.write(f":MEAS:MODE {mode}")
 

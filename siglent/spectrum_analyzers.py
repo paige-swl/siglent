@@ -13,7 +13,7 @@ in Spectrum Analyzer mode.
 
 """
 
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import List
 
 from .common import MessageResource
@@ -40,7 +40,7 @@ class Bandwidth(Enum):
     MHZ_1 = 1e6
 
 
-class AverageType(Enum):
+class AverageType(StrEnum):
     """Trace averaging type."""
 
     LOG_POWER = "LOGP"
@@ -48,7 +48,7 @@ class AverageType(Enum):
     VOLTAGE = "VOLT"
 
 
-class TraceMode(Enum):
+class TraceMode(StrEnum):
     """Trace display mode.
 
     Values
@@ -67,7 +67,7 @@ class TraceMode(Enum):
     AVERAGE = "AVER"
 
 
-class DetectionMode(Enum):
+class DetectionMode(StrEnum):
     """Trace detection mode.
 
     Values
@@ -101,7 +101,7 @@ class DetectionMode(Enum):
     QUASI = "QUAS"
 
 
-class MarkerMode(Enum):
+class MarkerMode(StrEnum):
     """Marker function mode.
 
     Values
@@ -121,7 +121,7 @@ class MarkerMode(Enum):
     FIXED = "FIX"
     OFF = "OFF"
 
-class MeasurementMode(Enum):
+class SSAMeasurementMode(StrEnum):
     """
     Measurement mode for the spectrum analyzer
     """
@@ -273,6 +273,53 @@ class SSA3000X(MessageResource):
     def average_type(self, type: AverageType):
         """Set the average type."""
         self._resource.write(f":AVER:TYPE {type.value}")
+
+    # ----- Measurements -----
+
+    @property
+    def measure_mode(self) -> SSAMeasurementMode:
+        """Get current measurement mode"""
+        mode = self._resource.query(":INST:MEAS?").strip()
+        try:
+            return SSAMeasurementMode(mode)
+        except ValueError:
+            return SSAMeasurementMode.OFF
+
+    @measure_mode.setter
+    def measure_mode(self, mode: SSAMeasurementMode):
+        """Set current measurement mode"""
+        self._resource.write(f":INST:MEAS {mode}")
+
+    # ----- Channel Power Measurements -----
+    def chan_power(self) -> "ChannelPower":
+        """Get the channel power measurement subsystem object"""
+        return self.ChannelPower(self)
+
+    class ChannelPower:
+        """Channel power measurement subsystem"""
+        def __init__(self, parent: "SSA3000X"):
+            self._parent = parent
+            self._resource = parent._resource
+
+        @property
+        def integration_bw(self) -> float:
+            """Get the channel power integration bandwidth in Hz"""
+            return float(self._resource.query(":SENS:CHP:BWID:INT?"))
+
+        @integration_bw.setter
+        def integration_bw(self, bw_hz: float):
+            """Set the channel power integration bandwidth in Hz"""
+            self._resource.write(f":SENS:CHP:BWID:INT {bw_hz} Hz")
+
+        @property
+        def power(self) -> float:
+            """Get the channel power in dBm"""
+            return float(self._resource.query(":MEAS:CHP:CHP?"))
+
+        @property
+        def psd(self) -> float:
+            """Get the channel power spectral density in dB/Hz"""
+            return float(self._resource.query(":MEAS:CHP:DENS?"))
 
     # ----- Trace -----
 
