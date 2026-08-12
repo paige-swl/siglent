@@ -1,8 +1,9 @@
 """Commom utilities for working with all siglent GPIB devices."""
 
-from pyvisa import ResourceManager
+from pyvisa import ResourceManager, errors
 from pyvisa.resources import MessageBasedResource
 
+import time
 
 class MessageResource:
     """Base class for all message-based siglent gpib resources."""
@@ -27,8 +28,30 @@ class MessageResource:
         """Clear the instrument status byte."""
         self._resource.write("*CLS")
 
-    def block_until_complete(self):
-        """Block the runtime until the instrument has finished all prior operations."""
-        assert (
-            self._resource.query("*OPC?").strip() == "1"
-        ), "*OPC? returned something unexpected"
+    def block_until_complete(self, timeout_ms=10000):
+        """Wait until the previous instrument command completes"""
+        start_time = time.time()
+
+        # Save the original timeout to restore it later
+        orig_timeout = self._resource.timeout
+        
+        # Shorten timeout for quick polling loops
+        self._resource.timeout = 1000 
+        
+        while True:
+            if (time.time() - start_time) * 1000 > timeout_ms:
+                self._resource.timeout = orig_timeout
+                raise TimeoutError("Instrument failed to become ready within timeout period.")
+                
+            try:
+                # Query *OPC? to check if operations are done
+                response = self._resource.query("*OPC?").strip()
+                if response == "1":
+                    break
+            except (errors.VisaIOError, ConnectionError):
+                # Suppress I/O errors while the connection is dropping/reconnecting
+                time.sleep(0.5)
+                continue
+                
+        # Restore original instrument timeout
+        self._resource.timeout = orig_timeout

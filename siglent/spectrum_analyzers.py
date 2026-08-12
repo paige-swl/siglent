@@ -121,22 +121,56 @@ class MarkerMode(Enum):
     FIXED = "FIX"
     OFF = "OFF"
 
+class MeasurementMode(Enum):
+    """
+    Measurement mode for the spectrum analyzer
+    """
+
+    OFF = "OFF"
+    REFLECTION = "REFL"
+    ACPR = "ACPR"
+    CHAN_PWR = "CHP"
+    OBW = "OBW"
+    TPOWER = "TPOW"
+    SPECTROGRAM = "SPEC"
+    TOI = "TOI"
+    HARMONICS = "HARM"
+    CNR = "CNR"
 
 class SSA3000X(MessageResource):
     """The class to control a SSA3000X-Series spectrum analyzer."""
+
+    supported_models = [
+        "SSA3021X",
+        "SSA3032X",
+        "SSA3015X",
+        "SSA3021X",
+        "SSA3032X",
+        "SSA3075X"
+    ]
+
+    # ----- Display -----
 
     @property
     def ref_level(self) -> float:
         """Get the reference level in dBm."""
         return float(self._resource.query(":DISP:WIND:TRAC:Y:RLEV?"))
 
-    # ----- Display -----
-
     @ref_level.setter
     def ref_level(self, level_dbm: float):
         """Set the reference level to the specified value in dBm."""
         assert -100 <= level_dbm <= 30, "Level must be between -100 and 30 dBm"
         self._resource.write(f":DISP:WIND:TRAC:Y:RLEV {level_dbm} DBM")
+
+    @property
+    def ref_offset(self) -> float:
+        """Get the current Y-axis reference offset in dB"""
+        return float(self._resource.query(":DISP:WIND:TRAC:Y:SCAL:RLEV:OFFS?"))
+
+    @ref_offset.setter
+    def ref_offset(self, offset: float):
+        """Set the Y-axis reference offset in dB"""
+        self._resource.write(f":DISP:WIND:TRAC:Y:SCAL:RLEV:OFFS {offset}")
 
     # ----- Frequency -----
 
@@ -403,3 +437,5 @@ class SSA3000X(MessageResource):
         def y(self) -> float:
             """Gets the current y value of the marker."""
             return float(self._resource.query(f":CALC:MARK{self._n}:Y?").strip())
+
+    
