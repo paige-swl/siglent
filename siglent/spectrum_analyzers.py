@@ -187,6 +187,10 @@ class SSA3000X(MessageResource):
         ), "Span must be between 100 Hz and 3.2 GHz or 0"
         self._resource.write(f":FREQ:SPAN {freq_hz} Hz")
 
+    def full_span(self):
+        """Set the spec an to full span"""
+        self._resource.write(":FREQ:SPAN:FULL")
+
     @property
     def freq_center(self) -> float:
         """Get the center frequency in Hz."""
@@ -320,6 +324,27 @@ class SSA3000X(MessageResource):
         def psd(self) -> float:
             """Get the channel power spectral density in dB/Hz"""
             return float(self._resource.query(":MEAS:CHP:DENS?"))
+
+    # ----- Harmonics Measurement Mode -----
+    def harmonics(self) -> "Harmonics":
+        """Get the harmonic measurement subsystem object"""
+        return self.Harmonics(self)
+
+    class Harmonics:
+        """Harmonic Measurement Subsystem"""
+        def __init__(self, parent: "SSA3000X"):
+            self._parent = parent
+            self._resource = parent._resource
+
+        @property
+        def fundamental(self) -> float:
+            """Get the harmonic fundamental frequency in Hz"""
+            return float(self._resource.query(":SENS:HARM:FREQ:FUND?"))
+
+        @fundamental.setter
+        def fundamental(self, freq_hz: float):
+            """Set the harmonic fundamental frequency in Hz"""
+            self._resource.write(f":SENS:HARM:FREQ:FUND {freq_hz} Hz")
 
     # ----- Trace -----
 
@@ -460,7 +485,7 @@ class SSA3000X(MessageResource):
             """Get which trance this marker is associated with."""
             return int(self._resource.query(f":CALC:MARK{self._n}:TRAC?").strip())
 
-        @enabled.setter
+        @trace.setter
         def trace(self, trace: int):
             """Set which trace this marker is on."""
             self._resource.write(f":CALC:MARK{self._n}:TRAC {trace}")
