@@ -7,12 +7,14 @@ Tested on:
 
 """
 
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import List
 
 from .common import MessageResource
 
-class Measurement(Enum):
+from statistics import fmean
+
+class SDMMeasurement(Enum):
     """
     Valid measurement types for the SDM3000X multimeters
     """
@@ -27,7 +29,19 @@ class Measurement(Enum):
     TEMP = "TEMP"
     FREQ = "FREQ"
 
+class SDMDCCurrentRange(StrEnum):
+    I_200uA = "0.0002"
+    I_2mA = "0.002"
+    I_20mA = "0.02"
+    I_200mA = "0.2"
+    I_2A = "2.0"
+    I_10A = "10.0"
+
 class SDM3000X(MessageResource):
+
+    supported_models = [
+            "SDM3065X"
+        ]
 
     @property
     def sample_count(self) -> int:
@@ -44,34 +58,34 @@ class SDM3000X(MessageResource):
         self._resource.write(f":SAMP:COUN {count}")
 
     @property
-    def measurement(self) -> Measurement:
+    def measurement(self) -> SDMMeasurement:
         # CONF? will return <Meas> <Range>,<Resolution> on the 3065X
         conf = self._resource.query(":CONF?")
         # Switch based on measurement mode
         if "VOLT:AC" in conf:
-            return Measurement.ACV
+            return SDMMeasurement.ACV
         elif "CURR:AC" in conf:
-            return Measurement.ACI
+            return SDMMeasurement.ACI
         elif "VOLT" in conf:
-            return Measurement.DCV
+            return SDMMeasurement.DCV
         elif "CURR" in conf:
-            return Measurement.DCI
+            return SDMMeasurement.DCI
         elif "CONT" in conf:
-            return Measurement.CONT
+            return SDMMeasurement.CONT
         elif "DIOD" in conf:
-            return Measurement.DIODE
+            return SDMMeasurement.DIODE
         elif "CAP" in conf:
-            return Measurement.CAP
+            return SDMMeasurement.CAP
         elif "FREQ" in conf:
-            return Measurement.FREQ
+            return SDMMeasurement.FREQ
         elif "TEMP" in conf:
-            return Measurement.TEMP
+            return SDMMeasurement.TEMP
         else:
             raise ValueError(f"Unknown instrument config {conf}")
 
     @measurement.setter
-    def measurement(self, meas: Measurement):
-        self._resource.write(f":CONF:{meas}")
+    def measurement(self, meas: SDMMeasurement):
+        self._resource.write(f":CONF:{meas.value}")
 
     @property
     def trigger_count(self) -> int:
@@ -83,5 +97,27 @@ class SDM3000X(MessageResource):
         
     @property
     def value(self) -> float:
+        """Read the current measurement from the instrument, averaging if multiple samples are returned"""
+        # Init trigger
+        self._resource.write("INIT")
+        # Wait
+        self.block_until_complete()
         # Read the current measurement
-        return float(self._resource.query("READ?"))
+        resp = self._resource.query("FETCH?")
+        # Split by commas
+        meas = [float(num) for num in resp.split(',')]
+        # Average and return
+        return fmean(meas)
+
+    @property
+    def dci_range(self) -> SDMDCCurrentRange:
+        val = float(self._resource.query("SENS:CURR:DC:RANG?"))
+        # Convert to string and strip any trailing zeroes unless it's >1
+        str_val = f"{val:}".rstrip("0").rstrip('.') if val % 1 != 0 else f"{val:.1f}"
+        # Parse into enum
+        return SDMDCCurrentRange(str_val)
+
+    @dci_range.setter
+    def dci_range(self, range: SDMDCCurrentRange):
+        # Write
+        self._resource.write(f"SENS:CURR:DC:RANG {range.value}")
