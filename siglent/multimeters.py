@@ -29,13 +29,20 @@ class SDMMeasurement(Enum):
     TEMP = "TEMP"
     FREQ = "FREQ"
 
-class SDMDCCurrentRange(StrEnum):
+class SDMCurrentRange(StrEnum):
     I_200uA = "0.0002"
     I_2mA = "0.002"
     I_20mA = "0.02"
     I_200mA = "0.2"
     I_2A = "2.0"
     I_10A = "10.0"
+
+class SDMVoltageRange(StrEnum):
+    V_200mV = "0.2"
+    V_2V = "2.0"
+    V_20V = "20.0"
+    V_200V = "200.0"
+    V_1000V = "1000.0"
 
 class SDM3000X(MessageResource):
 
@@ -100,6 +107,7 @@ class SDM3000X(MessageResource):
         """Read the current measurement from the instrument, averaging if multiple samples are returned"""
         # Init trigger
         self._resource.write("INIT")
+        self._resource.write("*TRG")
         # Wait
         self.block_until_complete()
         # Read the current measurement
@@ -110,14 +118,27 @@ class SDM3000X(MessageResource):
         return fmean(meas)
 
     @property
-    def dci_range(self) -> SDMDCCurrentRange:
+    def dci_range(self) -> SDMCurrentRange:
         val = float(self._resource.query("SENS:CURR:DC:RANG?"))
         # Convert to string and strip any trailing zeroes unless it's >1
         str_val = f"{val:}".rstrip("0").rstrip('.') if val % 1 != 0 else f"{val:.1f}"
         # Parse into enum
-        return SDMDCCurrentRange(str_val)
+        return SDMCurrentRange(str_val)
 
     @dci_range.setter
-    def dci_range(self, range: SDMDCCurrentRange):
+    def dci_range(self, range: SDMCurrentRange):
         # Write
         self._resource.write(f"SENS:CURR:DC:RANG {range.value}")
+
+    @property
+    def dcv_range(self) -> SDMVoltageRange:
+        val = float(self._resource.query("SENS:VOLT:DC:RANG?"))
+        # Convert to string and strip any trailing zeroes unless it's >1
+        str_val = f"{val:}".rstrip("0").rstrip('.') if val % 1 != 0 else f"{val:.1f}"
+        # Parse into enum
+        return SDMVoltageRange(str_val)
+
+    @dcv_range.setter
+    def dcv_range(self, range: SDMVoltageRange):
+        # Writre
+        self._resource.write(f"SENS:VOLT:DC:RANG {range.value}")

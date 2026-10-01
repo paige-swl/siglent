@@ -37,6 +37,11 @@ class SPD4000X(MessageResource):
         "SPD4306X"
     ]
 
+    def __del__(self):
+        """Turn off all channels before disposal"""
+        for i in range(1, 5):
+            self.channel(i).output = False
+
     def channel(self, channel: int) -> "Channel":
         """Get the PSU channel from 1 to 4"""
         assert 1 <= channel <= 4, "Valid channels available are 1-4"
